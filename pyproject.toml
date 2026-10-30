@@ -9,3 +9,6 @@ dependencies = [
     "pytest>=9.1.1",
     "ruff>=0.17.2",
 ]
+
+[project.scrips]
+dm = "devmem.cli:app"
