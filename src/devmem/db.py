@@ -2,7 +2,7 @@ import os
 import sqlite3
 from pathlib import Path
 
-MIGRATIONS_DIR = PATH(__file__).parent / "migrations"
+MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
 def default_db_path() -> Path:
