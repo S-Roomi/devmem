@@ -7,8 +7,13 @@ requires-python = ">=3.12"
 dependencies = [
     "mypy>=2.4.0",
     "pytest>=9.1.1",
+    "python-ulid>=4.1.0",
     "ruff>=0.17.2",
 ]
 
 [project.scrips]
 dm = "devmem.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
