@@ -55,7 +55,7 @@ def ingest_spool(spool_path: os.PathLike[str], conn) -> int:
     
     # find where we last read
     row = conn.execute(
-        "SELECT byte_offset FROM ingest_state WHERE spool_path = ?", (key)
+        "SELECT byte_offset FROM ingest_state WHERE spool_path = ?", (key,)
     ).fetchone()
     
     offset = row[0] if row else 0
