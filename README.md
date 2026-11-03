@@ -126,7 +126,7 @@ Defaults (override with the environment variables shown):
 | Spool | `~/.local/state/devmem/spool` | `DEVMEM_SPOOL` (or `XDG_STATE_HOME`) |
 | Database | `~/.local/share/devmem/devmem.db` | `XDG_DATA_HOME` |
 
-## Running it today
+## Running it
 
 The `dm` command does not exist yet (it is the next step). Until then, load your spool
 into the database with:
