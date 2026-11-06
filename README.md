@@ -86,7 +86,7 @@ when you reach M3.
 ## Setup
 
 ```bash
-git clone <your-repo-url> devmem
+git clone https://github.com/S-Roomi/devmem.git
 cd devmem
 
 uv sync                       # creates .venv and installs the project
