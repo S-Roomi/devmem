@@ -2,7 +2,7 @@ autoload -Uz add-zsh-hook
 zmodload zsh/datetime
 
 typeset -g _DM_SPOOL="${DEVMEM_SPOOL:-${XDG_STATE_HOME:-$HOME/.local/state}/devmem/spool}"
-typeset -g _dm_cmd _dm_stat _dm_cwd
+typeset -g _dm_cmd _dm_start _dm_cwd
 
 # owner only directory and file, created once at load time
 () {
@@ -34,9 +34,9 @@ _dm_precmd() {
     c=${c//$'\n'/\\n}   # newline
     c=${c//$'\t'/\\t}   # tab 
     
-
+    local -i start_ms=$(( _dm_start * 1000 ))
     local -i dur_ms=$(( (EPOCHREALTIME - _dm_start) * 1000 ))
-    { print -r -- "$dur_ms"$'\t'"$exit_code"$'\t'"$_dm_cwd"$'\t'"$c" >> "$_DM_SPOOL" } 2>/dev/null
+    { print -r -- "$start_ms"$'\t'"$dur_ms"$'\t'"$exit_code"$'\t'"$_dm_cwd"$'\t'"$c" >> "$_DM_SPOOL" } 2>/dev/null
     
     return $exit_code
 
