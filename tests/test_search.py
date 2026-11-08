@@ -6,8 +6,8 @@ from devmem.db import MIGRATIONS_DIR, connect
 from devmem.ingest import ingest_spool
 from devmem.search import search, turn_into_fts_query
 
-
 # ---------- helpers ----------
+
 
 @pytest.fixture
 def conn(tmp_path):
@@ -17,6 +17,7 @@ def conn(tmp_path):
 
 
 _counter = 0
+
 
 def add(conn, command, start_ms=1000, exit_code=0, cwd="/tmp"):
     """Insert one event directly (bypasses ingest, so search is tested on its own)."""
@@ -36,12 +37,16 @@ def found(conn, text, **kw):
 
 # ---------- turn_into_fts_query ----------
 
+
 @pytest.mark.parametrize(
     "typed, expected",
     [
         ("rebase", '"rebase"*'),
         ("git rebase", '"git"* "rebase"*'),
-        ("git commit -m", '"git"* "commit"* "m"*'),   # the dash is dropped, not a syntax error
+        (
+            "git commit -m",
+            '"git"* "commit"* "m"*',
+        ),  # the dash is dropped, not a syntax error
         ("", ""),
         ("   ", ""),
         ("--- !!!", ""),
@@ -52,6 +57,7 @@ def test_turn_into_fts_query(typed, expected):
 
 
 # ---------- basic searching ----------
+
 
 def test_finds_a_word(conn):
     add(conn, "git rebase -i HEAD~3")
@@ -103,6 +109,7 @@ def test_unicode(conn):
 
 # ---------- ordering, limits, returned fields ----------
 
+
 def test_newest_first(conn):
     add(conn, "docker old", start_ms=1000)
     add(conn, "docker new", start_ms=3000)
@@ -120,20 +127,40 @@ def test_hit_has_all_fields(conn):
     add(conn, "make build", start_ms=1792805765980, exit_code=2, cwd="/home/me/proj")
     hit = search(conn, "make")[0]
     assert (hit.start_ms, hit.exit_code, hit.cwd, hit.command) == (
-        1792805765980, 2, "/home/me/proj", "make build",
+        1792805765980,
+        2,
+        "/home/me/proj",
+        "make build",
     )
 
 
 # ---------- hostile or odd input must never crash ----------
 
+
 @pytest.mark.parametrize(
     "typed",
-    ["", "   ", "-i", '"', '"unbalanced', "git commit -m", "AND", "OR", "NOT",
-     "foo:bar", "*", "(", ")", "a AND", "NEAR(a b)", "'; DROP TABLE events; --"],
+    [
+        "",
+        "   ",
+        "-i",
+        '"',
+        '"unbalanced',
+        "git commit -m",
+        "AND",
+        "OR",
+        "NOT",
+        "foo:bar",
+        "*",
+        "(",
+        ")",
+        "a AND",
+        "NEAR(a b)",
+        "'; DROP TABLE events; --",
+    ],
 )
 def test_odd_input_does_not_crash(conn, typed):
     add(conn, "git commit -m 'fix'")
-    search(conn, typed)          # passing means: no exception
+    search(conn, typed)  # passing means: no exception
     assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 1
 
 
@@ -144,9 +171,12 @@ def test_command_words_that_look_like_operators_are_searchable(conn):
 
 # ---------- the index stays in sync with the events table ----------
 
+
 def test_rows_added_by_ingest_are_searchable(tmp_path, conn):
     spool = tmp_path / "spool"
-    spool.write_text("1792805765980\t1000\t0\t/tmp\tkubectl get pods\n", encoding="utf-8")
+    spool.write_text(
+        "1792805765980\t1000\t0\t/tmp\tkubectl get pods\n", encoding="utf-8"
+    )
     ingest_spool(spool, conn)
     assert found(conn, "kubectl") == ["kubectl get pods"]
 

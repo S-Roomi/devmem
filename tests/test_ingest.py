@@ -3,8 +3,8 @@ import pytest
 from devmem.db import connect
 from devmem.ingest import ingest_spool, parse_line, unescape
 
-
 # ---------- helpers ----------
+
 
 def spool_line(command, start=1792805765980, dur=1000, code=0, cwd="/tmp"):
     """Build one spool line. `command` must already be in escaped (spool) form."""
@@ -13,7 +13,7 @@ def spool_line(command, start=1792805765980, dur=1000, code=0, cwd="/tmp"):
 
 @pytest.fixture
 def conn(tmp_path):
-    c = connect(tmp_path / "test.db")   # throwaway database, never your real one
+    c = connect(tmp_path / "test.db")  # throwaway database, never your real one
     yield c
     c.close()
 
@@ -33,6 +33,7 @@ def commands(conn):
 
 # ---------- unescape ----------
 # Raw strings (r"...") let us write a backslash exactly as it appears in the spool.
+
 
 @pytest.mark.parametrize(
     "spool_text, expected",
@@ -55,6 +56,7 @@ def test_unescape(spool_text, expected):
 
 # ---------- parse_line ----------
 
+
 def test_parse_line_normal():
     line = spool_line("git status")
     assert parse_line(line) == (1792805765980, 1000, 0, "/tmp", "git status")
@@ -70,7 +72,10 @@ def test_parse_line_failed_command_keeps_exit_code():
 
 
 def test_parse_line_folder_with_spaces():
-    assert parse_line(spool_line("ls", cwd="/home/me/my project"))[3] == "/home/me/my project"
+    assert (
+        parse_line(spool_line("ls", cwd="/home/me/my project"))[3]
+        == "/home/me/my project"
+    )
 
 
 def test_parse_line_command_keeps_spaces_and_quotes():
@@ -94,6 +99,7 @@ def test_parse_line_non_numeric_duration_raises():
 
 # ---------- ingest_spool: things that should work today ----------
 
+
 def test_ingest_inserts_one_row(tmp_path, conn):
     run_ingest(tmp_path, conn, spool_line("git status"))
     row = conn.execute(
@@ -103,12 +109,14 @@ def test_ingest_inserts_one_row(tmp_path, conn):
 
 
 def test_ingest_multiple_rows_keep_order(tmp_path, conn):
-    run_ingest(tmp_path, conn, spool_line("first"), spool_line("second"), spool_line("third"))
+    run_ingest(
+        tmp_path, conn, spool_line("first"), spool_line("second"), spool_line("third")
+    )
     assert commands(conn) == ["first", "second", "third"]
 
 
 def test_ingest_empty_file_does_nothing(tmp_path, conn):
-    run_ingest(tmp_path, conn)   # no lines at all
+    run_ingest(tmp_path, conn)  # no lines at all
     assert commands(conn) == []
 
 
@@ -122,9 +130,9 @@ def test_ingest_awkward_characters_round_trip(tmp_path, conn):
     run_ingest(
         tmp_path,
         conn,
-        spool_line(r"echo a\tb"),        # real tab
-        spool_line(r"echo a\nb"),        # real newline
-        spool_line(r"echo a\\nb"),       # literal backslash + n
+        spool_line(r"echo a\tb"),  # real tab
+        spool_line(r"echo a\nb"),  # real newline
+        spool_line(r"echo a\\nb"),  # literal backslash + n
     )
     assert commands(conn) == ["echo a\tb", "echo a\nb", "echo a\\nb"]
 
@@ -143,8 +151,10 @@ def test_ingest_very_long_command(tmp_path, conn):
 def test_ingest_sql_looking_command_is_stored_as_plain_text(tmp_path, conn):
     nasty = """echo "it's"; DROP TABLE events; --"""
     run_ingest(tmp_path, conn, spool_line(nasty))
-    assert commands(conn) == [nasty]                       # stored as typed...
-    assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 1   # ...table still there
+    assert commands(conn) == [nasty]  # stored as typed...
+    assert (
+        conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 1
+    )  # ...table still there
 
 
 def test_ingest_many_rows(tmp_path, conn):
@@ -154,8 +164,11 @@ def test_ingest_many_rows(tmp_path, conn):
 
 # ---------- ingest_spool: bad lines and remembering progress ----------
 
+
 def test_ingest_skips_line_with_too_few_fields(tmp_path, conn):
-    run_ingest(tmp_path, conn, spool_line("good one"), "garbage\n", spool_line("good two"))
+    run_ingest(
+        tmp_path, conn, spool_line("good one"), "garbage\n", spool_line("good two")
+    )
     assert commands(conn) == ["good one", "good two"]
 
 
@@ -166,13 +179,13 @@ def test_ingest_skips_blank_line(tmp_path, conn):
 
 def test_running_twice_does_not_duplicate(tmp_path, conn):
     spool = run_ingest(tmp_path, conn, spool_line("a"), spool_line("b"))
-    ingest_spool(spool, conn)   # same file, second time
+    ingest_spool(spool, conn)  # same file, second time
     assert commands(conn) == ["a", "b"]
 
 
 def test_second_run_picks_up_only_new_lines(tmp_path, conn):
     spool = run_ingest(tmp_path, conn, spool_line("a"), spool_line("b"))
-    with open(spool, "a", encoding="utf-8") as f:   # the hook appends a new command
+    with open(spool, "a", encoding="utf-8") as f:  # the hook appends a new command
         f.write(spool_line("c"))
     ingest_spool(spool, conn)
     assert commands(conn) == ["a", "b", "c"]
@@ -181,10 +194,12 @@ def test_second_run_picks_up_only_new_lines(tmp_path, conn):
 def test_half_written_last_line_waits_for_next_run(tmp_path, conn):
     spool = tmp_path / "spool"
     # second line is cut off: no newline at the end yet (the hook is mid-write)
-    spool.write_text(spool_line("done") + "1792805765980\t1000\t0\t/tmp\tpart", encoding="utf-8")
+    spool.write_text(
+        spool_line("done") + "1792805765980\t1000\t0\t/tmp\tpart", encoding="utf-8"
+    )
     ingest_spool(spool, conn)
     assert commands(conn) == ["done"]
-    with open(spool, "a", encoding="utf-8") as f:      # the hook finishes the line
+    with open(spool, "a", encoding="utf-8") as f:  # the hook finishes the line
         f.write("ial\n")
     ingest_spool(spool, conn)
     assert commands(conn) == ["done", "partial"]
@@ -200,6 +215,6 @@ def test_bad_line_does_not_block_later_lines_on_next_run(tmp_path, conn):
 
 def test_file_that_shrinks_is_read_again_from_the_start(tmp_path, conn):
     spool = run_ingest(tmp_path, conn, spool_line("old one"), spool_line("old two"))
-    spool.write_text(spool_line("new"), encoding="utf-8")   # smaller than before
+    spool.write_text(spool_line("new"), encoding="utf-8")  # smaller than before
     ingest_spool(spool, conn)
     assert commands(conn)[-1] == "new"
