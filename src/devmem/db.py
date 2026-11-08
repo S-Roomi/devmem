@@ -7,7 +7,7 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 def default_db_path() -> Path:
     base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share" ))
-    return base / "devmen" / "devmen.db"
+    return base / "devmem" / "devmen.db"
 
 def migrate(conn: sqlite3.Connection) -> None:
     current = conn.execute("PRAGMA user_version").fetchone()[0]
