@@ -15,6 +15,7 @@ build/
 *.db-wal
 *.db-shm
 spool
+spool.old
 
 Roadmap.md
 README.md
