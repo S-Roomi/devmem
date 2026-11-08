@@ -23,12 +23,9 @@ def search(conn, text: str, limit:int = 20) -> list[Hit]:
     """Returns up to limit of matching commands in FTS5 table (newest first).
 
     Args:
-        conn (_type_): SQLITE connection
+        conn: SQLITE connection
         text (str): command or text to search for
         limit (int, optional): Number of results to return. Defaults to 20.
-
-    Returns:
-        list[Hit]: List of results with information that was store in the table 
     """
     query = turn_into_fts_query(text)
     if not query:
@@ -47,4 +44,17 @@ def search(conn, text: str, limit:int = 20) -> list[Hit]:
     ).fetchall()
     
     # unpack all tuples into arguments for Hit object
+    return [Hit(*row) for row in rows]
+
+def recent(conn, limit: int = 20) -> list[Hit]:
+    """Return the `limit` most recent commands (newest first)
+
+    Args:
+        conn: SQLITE connection
+        limit (int, optional): Number of results to return. Defaults to 20.
+    """
+    rows = conn.execute(
+        "SELECT start_ms, exit_code, cwd, command FROM events ORDER BY start_ms DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
     return [Hit(*row) for row in rows]
