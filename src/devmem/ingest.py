@@ -3,6 +3,7 @@ import socket
 from pathlib import Path
 from ulid import ULID
 from devmem.db import connect
+from typing import NamedTuple
 
 DEVICE_ID = socket.gethostname()
 
@@ -11,6 +12,10 @@ INSERT_EVENT = (
     " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
+class IngestResult(NamedTuple):
+    added: int       # rows inserted
+    skipped: int     # non-blank lines that could not be parsed
+    missing: bool    # the spool file does not exist
 
 def unescape(s: str) -> str:
     result = ""
@@ -25,10 +30,10 @@ def unescape(s: str) -> str:
             elif nxt == "\\":
                 result += "\\"                  # \\  ->  one real backslash
             else:
-                result += s[i] + nxt            # unknown pair: keep as is
-            i += 2                              # we used two characters
+                result += s[i] + nxt
+            i += 2
         else:
-            result += s[i]                      # ordinary character: copy it
+            result += s[i]                      # ordinary character, copy it
             i += 1
     return result
 
@@ -43,55 +48,56 @@ def parse_line(line: str) -> tuple[int, int, int, str, str]:
         unescape(command)
     )
     
-def ingest_spool(spool_path: os.PathLike[str], conn) -> int:
-    """
-    conn
-        SQLite connection
-    """
+ 
+ 
+def ingest_spool(spool_path, conn) -> IngestResult:
+    """Insert any NEW complete lines from the spool file."""
     spool_path = Path(spool_path)
     if not spool_path.exists():
-        return 0
+        return IngestResult(0, 0, True)
     key = str(spool_path.resolve())
-    
-    # find where we last read
+ 
+    # Find previous byte offset (where we stopped reading last time)
     row = conn.execute(
         "SELECT byte_offset FROM ingest_state WHERE spool_path = ?", (key,)
     ).fetchone()
-    
     offset = row[0] if row else 0
-    
-    # read the bytes we haven't read yet
+ 
+    # Read starting from were we left off
     with open(spool_path, "rb") as f:
         size = f.seek(0, os.SEEK_END)
         if size < offset:
             offset = 0
         f.seek(offset)
         data = f.read()
-    
-    # Only trust complete  lines. The hook may be mid-write, so the last piece
+ 
+    # Only trust COMPLETE lines. The hook may be mid-write, so the last piece
     # might be half a line; leave it for next time.
     complete_len = data.rfind(b"\n") + 1
     complete = data[:complete_len]
-    new_offset = offset + complete_len 
-    
-    
-    # read the lines and turn them into rows
+    new_offset = offset + complete_len
+ 
+    # Turn each line into a row
     rows = []
+    skipped = 0
     for raw in complete.split(b"\n")[:-1]:
         try:
             start_ms, dur_ms, exit_code, cwd, command = parse_line(
                 raw.decode("utf-8", errors="replace")
             )
         except ValueError:
+            if raw.strip():     # blank lines are harmless
+                skipped += 1
             continue
-        
-        rows.append((str(ULID()), DEVICE_ID, "shell", start_ms, dur_ms, exit_code, cwd, command))
-
+        rows.append(
+            (str(ULID()), DEVICE_ID, "shell", start_ms, dur_ms, exit_code, cwd, command)
+        )
+ 
+    # Save the rows AND the new offset together
     with conn:
         conn.executemany(INSERT_EVENT, rows)
         conn.execute(
             "INSERT OR REPLACE INTO ingest_state (spool_path, byte_offset) VALUES (?, ?)",
             (key, new_offset),
         )
-    
-    return len(rows)
+    return IngestResult(len(rows), skipped, False)
