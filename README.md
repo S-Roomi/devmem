@@ -85,10 +85,3 @@ Tests use temporary files and databases and never touch your real history.
   of the log (e.g. ` export TOKEN=...`).
 - Never commit `*.db`, `*.db-wal`, `*.db-shm` or the spool file; they are in `.gitignore`.
 - Nothing leaves your machine.
-
-## Known limitations
-
-- zsh only.
-- The git branch and repository are not recorded.
-- `device_id` is currently the hostname, which is not guaranteed to be unique.
-- Long-running commands (such as an open `vim` session) are logged only when they exit.
